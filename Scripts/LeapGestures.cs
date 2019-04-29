@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using System.Collections;
 
@@ -15,6 +15,7 @@ namespace Leap.Unity
     {
         // Name of spawned line render used for pointing at things
         string lineGOname = "_line";
+        List<GameObject> linePointers = new List<GameObject>();
 
         // Assign these through the Unity Inspector
         public GameObject planeMarkerRight;
@@ -67,8 +68,12 @@ namespace Leap.Unity
         float portalDistance;
 
         // Need to point at portal long enough to move it
-        float pointingAtPortalTime = 3f;
+        float pointingAtPortalTime = 2f;
         float pointingAtPortalTimeCurrent = 0f;
+
+        // Need to point long enough to activate the sign
+        float pointingTime = 1f;
+        float pointingTimeCurrent = 0f;
 
         // Start is called before the first frame update
         void Start()
@@ -133,8 +138,9 @@ namespace Leap.Unity
         // Make sure it shows up in white: https://answers.unity.com/questions/587380/linerenderer-drawing-in-pink.html
         void drawPointer(Vector3 fingerPos, Vector3 fingerDir)
         {
-            GameObject go = new GameObject(lineGOname);
-            LineRenderer lr = go.AddComponent<LineRenderer>() as LineRenderer;
+            GameObject line = new GameObject(lineGOname);
+            linePointers.Add(line);
+            LineRenderer lr = line.AddComponent<LineRenderer>() as LineRenderer;
             lr.enabled = true;
             lr.positionCount = 2;
             lr.startWidth = 0.0005f;
@@ -147,12 +153,12 @@ namespace Leap.Unity
             lr.material = whiteDiffuseMat;
         }
 
-        // Loop through all gameObjects and destroy the ones with the name "_line"
+        // Loop through and destroy all lines
         void disablePointers()
         {
-            foreach (GameObject go in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[])
-                if(go.name == lineGOname)
-                    Destroy(go);
+            foreach(GameObject line in linePointers)
+                Destroy(line);
+            linePointers = new List<GameObject>();
         }
 
         // Disables marker if it's been active for too long
@@ -401,8 +407,19 @@ namespace Leap.Unity
                 }
 
                 //// POINTER //// 
-                if (pointerResult)
+                // If the pointer is already active, continue to handle pointer this frame
+                if (pointerResult && linePointers.Count > 0)
                     handlePointMarker(hand);
+                else if (pointerResult)
+                {
+                    // Handle point gesture if holding gesture for long enough
+                    pointingTimeCurrent += Time.deltaTime;
+                    if(pointingTimeCurrent >= pointingTime)
+                    {
+                        handlePointMarker(hand);
+                        pointingTimeCurrent = 0;
+                    }
+                }
                 else
                 {
                     // If no finger was pointing, then disable the pointer
