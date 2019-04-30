@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -70,7 +70,7 @@ public class PortalManager : MonoBehaviour
 
         // Flip the local point x value so that objects come out the correct side. 
         // An object entering the left side of an entry portal should exit the right side of the other.
-        localCollisionPosition = new Vector3(localCollisionPosition.x * -1, localCollisionPosition.y, localCollisionPosition.z);
+        localCollisionPosition.x = localCollisionPosition.x * -1;
 
         // Move the object to the exit portal in world space, taking the relative portal offset into account
         colliderGO.transform.position = currentExitPortal.transform.TransformPoint(localCollisionPosition);
