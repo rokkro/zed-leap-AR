@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,10 +18,9 @@ namespace Leap.Unity
         string lineGOname = "_line";
         string portalTag = "portal";
 
-        // Line pointer GOs. Only set up to handle one, currently.
-        // So only left or right hand can have a line renderer, 
-        //  but they can both point to place markers at the same time.
-        List<GameObject> linePointers = new List<GameObject>();
+        // Line pointer GOs
+        GameObject leftPointer;
+        GameObject rightPointer;
 
         // Required fingers needed to trigger gesture
         List<Finger.FingerType> indexPointingOnly = new List<Finger.FingerType> { Finger.FingerType.TYPE_INDEX };
@@ -46,7 +45,7 @@ namespace Leap.Unity
         float pointingAtPortalTimeCurrent = 0f;
 
         // Need to point long enough to activate the sign
-        float pointingTime = 1f;
+        float pointingTime = .5f;
         float pointingTimeCurrent = 0f;
 
         // Start is called before the first frame update
@@ -58,11 +57,22 @@ namespace Leap.Unity
 
         // Creates a line renderer gameobject named _line to be attached to the end of a pointing index finger
         // Make sure it shows up in white: https://answers.unity.com/questions/587380/linerenderer-drawing-in-pink.html
-        void drawPointer(Vector3 fingerPos, Vector3 fingerDir)
+        void drawPointer(Vector3 fingerPos, Vector3 fingerDir, ref GameObject pointer)
         {
-            GameObject line = new GameObject(lineGOname);
-            linePointers.Add(line);
-            LineRenderer lr = line.AddComponent<LineRenderer>() as LineRenderer;
+            LineRenderer lr;
+            Material whiteDiffuseMat;
+
+            if (pointer != null)
+            {
+                lr = pointer.GetComponent<LineRenderer>();
+                lr.enabled = true;
+                lr.SetPosition(0, fingerPos);
+                lr.SetPosition(1, fingerDir * 20 + fingerPos);
+                return;
+            }
+
+            pointer = new GameObject(lineGOname);
+            lr = pointer.AddComponent<LineRenderer>() as LineRenderer;
             lr.enabled = true;
             lr.positionCount = 2;
             lr.startWidth = 0.0005f;
@@ -71,16 +81,8 @@ namespace Leap.Unity
             lr.endColor = Color.white;
             lr.SetPosition(0, fingerPos);
             lr.SetPosition(1, fingerDir * 20 + fingerPos);
-            Material whiteDiffuseMat = new Material(Shader.Find("Unlit/Texture"));
+            whiteDiffuseMat = new Material(Shader.Find("Unlit/Texture"));
             lr.material = whiteDiffuseMat;
-        }
-
-        // Loop through and destroy all lines
-        void disablePointers()
-        {
-            foreach (GameObject line in linePointers)
-                Destroy(line);
-            linePointers = new List<GameObject>();
         }
 
         // Disables marker if it's been active for too long
@@ -115,8 +117,10 @@ namespace Leap.Unity
             Vector3 fingerPos = UnityVectorExtension.ToVector3(pointer.TipPosition);
             Vector3 fingerDir = UnityVectorExtension.ToVector3(pointer.Direction);
 
-            disablePointers();
-            drawPointer(fingerPos, fingerDir);
+            if (hand.IsLeft)
+                drawPointer(fingerPos, fingerDir, ref leftPointer);
+            else
+                drawPointer(fingerPos, fingerDir, ref rightPointer);
 
             // Move portal instead of dealing with markers
             if (portalMove)
@@ -182,16 +186,17 @@ namespace Leap.Unity
             Frame currentFrame = leapGestures.getCurrentFrame;
 
             // Remove the pointer if no hand visible
-            if (currentFrame.Hands.Count == 0)
-                disablePointers();
-
+            if (currentFrame.Hands.Count == 0) { 
+                Destroy(leftPointer);
+                Destroy(rightPointer);
+            }
             foreach (Hand hand in currentFrame.Hands)
             {
                 bool pointerResult = leapGestures.checkCurrentFingerStatus(hand.Fingers, indexPointingOnly);
 
                 //// POINTER //// 
                 // If the pointer is already active, continue to handle pointer this frame
-                if (pointerResult && linePointers.Count > 0)
+                if (pointerResult && (leftPointer!=null || rightPointer!=null))
                     handlePointMarker(hand);
                 else if (pointerResult)
                 {
@@ -205,9 +210,12 @@ namespace Leap.Unity
                 }
                 else
                 {
-                    // If no finger was pointing, then disable the pointer
+                    if (hand.IsLeft)
+                        Destroy(leftPointer);
+                    else
+                        Destroy(rightPointer);
+
                     // Stop moving the portal if we stop pointing
-                    disablePointers();
                     portalMove = false;
                 }
             }
