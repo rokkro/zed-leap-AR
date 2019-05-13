@@ -44,14 +44,8 @@ public class TogglesAndKeys : MonoBehaviour
         ZEDManager manager = FindObjectOfType(typeof(ZEDManager)) as ZEDManager;
         manager.depthOcclusion = !manager.depthOcclusion;
 
-        // manager.Reset() causes a crash due to an issue with the ZED plugin
-        // As a workaround, I've made setRenderingSettings() public within ZEDManager until it's fixed
         // This updates the depth occlusion setting immediately, otherwise you'll have to wait for the camera to do it automatically
-        try
-        {
-            manager.setRenderingSettings();
-        }
-        catch (Exception) { }
+        manager.Reset();
     }
 
     // Called with GameObject.SendMessage() for the menu.
